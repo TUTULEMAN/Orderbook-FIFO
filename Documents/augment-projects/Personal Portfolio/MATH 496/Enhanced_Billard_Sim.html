@@ -1,0 +1,1550 @@
+// Periodic Orbits Project
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Billiard Trajectory Simulator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            max-width: 95vw;
+        }
+        
+        #gameCanvas {
+            border: 8px solid #8B4513;
+            background: #0f5132;
+            cursor: crosshair;
+            display: block;
+            max-width: 100%;
+        }
+        
+        .controls {
+            margin-top: 15px;
+            text-align: center;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .control-group {
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: nowrap;
+            min-height: 32px;
+        }
+
+        .control-panel {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            min-width: 280px;
+        }
+
+        .control-panel h4 {
+            margin: 0 0 15px 0;
+            color: #4CAF50;
+            text-align: center;
+        }
+
+        label {
+            min-width: 80px;
+            text-align: left;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            min-width: 80px;
+            max-width: 150px;
+        }
+        
+        select, input[type="number"] {
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            padding: 4px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        input[type="number"] {
+            min-width: 80px;
+            max-width: 120px;
+            text-align: center;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            max-width: 800px;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 2px;
+            font-size: 12px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .value-display {
+            min-width: 60px;
+            text-align: center;
+            font-weight: bold;
+            color: #4CAF50;
+            font-size: 14px;
+            flex-shrink: 0;
+            background: #444;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #666;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .value-display:hover {
+            background: #555;
+        }
+
+        .value-input {
+            min-width: 60px;
+            text-align: center;
+            font-weight: bold;
+            color: #4CAF50;
+            font-size: 14px;
+            flex-shrink: 0;
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 2px solid #4CAF50;
+        }
+        
+        .periodic-info {
+            background: #1a472a;
+            border: 2px solid #4CAF50;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .periodic-info.found {
+            background: #472a1a;
+            border-color: #f44336;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .buttons-row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            .control-group {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 5px;
+            }
+
+            label {
+                text-align: center;
+                min-width: auto;
+            }
+
+            input[type="range"] {
+                max-width: none;
+            }
+
+            .value-display {
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .control-panel {
+                min-width: 250px;
+            }
+
+            .controls {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        
+        <div class="controls">
+            <div class="control-panel">
+                <h4>Table Settings</h4>
+                <div class="control-group">
+                    <label>Shape:</label>
+                    <select id="shapeSelect">
+                        <option value="rectangle">Rectangle</option>
+                        <option value="circle">Circle</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Width:</label>
+                    <input type="range" id="widthSlider" min="200" max="1200" value="800" step="50">
+                    <span class="value-display" id="widthValue" onclick="editValue('width')">800</span>
+                </div>
+                <div class="control-group">
+                    <label>Height:</label>
+                    <input type="range" id="heightSlider" min="200" max="800" value="400" step="50">
+                    <span class="value-display" id="heightValue" onclick="editValue('height')">400</span>
+                </div>
+            </div>
+            
+            <div class="control-panel">
+                <h4>Simulation</h4>
+                <div class="control-group">
+                    <label>Max Bounces:</label>
+                    <input type="range" id="bouncesSlider" min="5" max="200" value="50">
+                    <span class="value-display" id="bouncesValue" onclick="editValue('bounces')">50</span>
+                </div>
+                <div class="control-group">
+                    <label>Precision:</label>
+                    <input type="range" id="precisionSlider" min="1" max="20" value="6">
+                    <span class="value-display" id="precisionValue" onclick="editValue('precision')">6</span>
+                </div>
+                <div class="buttons-row">
+                    <button onclick="clearTrajectory()">Clear</button>
+                    <button onclick="resetBall()">Reset Ball</button>
+                    <button onclick="randomShot()">Random Shot</button>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h4>Direction Input</h4>
+                <div class="control-group">
+                    <label>Angle (°):</label>
+                    <input type="number" id="angleInput" min="0" max="360" step="0.001" value="45">
+                    <span class="value-display">°</span>
+                </div>
+                <div class="buttons-row">
+                    <button onclick="shootAtAngle()">Shoot at Angle</button>
+                    <button onclick="setRandomAngle()">Random Angle</button>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h4>Ball Position</h4>
+                <div class="control-group">
+                    <label>X Position:</label>
+                    <input type="number" id="ballXInput" min="8" max="792" step="0.1" value="400">
+                    <span class="value-display">px</span>
+                </div>
+                <div class="control-group">
+                    <label>Y Position:</label>
+                    <input type="number" id="ballYInput" min="8" max="392" step="0.1" value="200">
+                    <span class="value-display">px</span>
+                </div>
+                <div class="buttons-row">
+                    <button onclick="setBallPosition()">Set Position</button>
+                    <button onclick="centerBall()">Center Ball</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="periodicInfo" class="periodic-info">
+            <strong>Periodic Orbit Detection:</strong> <span id="orbitStatus">Shoot the ball to check for periodic orbits</span>
+            <br><strong>Symmetry Analysis:</strong> <span id="symmetryStatus">No trajectory to analyze</span>
+        </div>
+
+        <div id="wallHitInfo" class="periodic-info" style="margin-top: 10px;">
+            <strong>Wall Hit Counter (Rectangle Table Only):</strong>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 8px; text-align: center;">
+                <div><strong>Left:</strong> <span id="leftHits">0</span></div>
+                <div><strong>Right:</strong> <span id="rightHits">0</span></div>
+                <div><strong>Top:</strong> <span id="topHits">0</span></div>
+                <div><strong>Bottom:</strong> <span id="bottomHits">0</span></div>
+            </div>
+            <div style="margin-top: 8px; text-align: center;">
+                <strong>Total Hits:</strong> <span id="totalHits">0</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h3>How to Use:</h3>
+        <ul>
+            <li><strong>Click and drag</strong> from the ball to set direction</li>
+            <li><strong>Click anywhere</strong> to move the ball</li>
+            <li><strong>Manual Input:</strong> Click any number value to edit it directly for precise control</li>
+            <li><strong>Ball Position:</strong> Set exact X,Y coordinates or use position buttons</li>
+            <li><strong>Direction Input:</strong> Enter precise angle (0-360°), then click "Shoot at Angle"</li>
+            <li><strong>Angle Reference:</strong> 0° = Right, 90° = Down, 180° = Left, 270° = Up</li>
+            <li><strong>Change table shape</strong> between rectangle and circle</li>
+            <li><strong>Adjust dimensions</strong> with width/height sliders</li>
+            <li><strong>Precision</strong> affects orbit detection sensitivity (now up to 20 decimal places!)</li>
+            <li><strong>Periodic orbits</strong> are automatically detected and displayed</li>
+            <li><strong>Angle Visualization:</strong> Hover over any bounce point to see incident/reflection angles</li>
+            <li><strong>Physics Display:</strong> Red = Normal, Cyan = Incident, Yellow = Reflected vectors</li>
+            <li><strong>Wall Hit Counter:</strong> Track hits on each wall (Left, Right, Top, Bottom) for rectangle tables</li>
+            <li><strong>Constant Velocity:</strong> Ball maintains speed forever, only limited by max bounces</li>
+            <li><strong>Random Shot/Angle</strong> buttons for quick experimentation</li>
+        </ul>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let ball = {
+            x: 400,
+            y: 200,
+            radius: 8
+        };
+        
+        let tableSettings = {
+            shape: 'rectangle',
+            width: 800,
+            height: 400
+        };
+        
+        let trajectory = [];
+        let periodicOrbit = null;
+        let symmetryLines = [];
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let dragCurrent = { x: 0, y: 0 };
+        let initialShot = null;
+        let hoveredBounceIndex = -1;
+        let mousePos = { x: 0, y: 0 };
+        let wallHitCounter = {
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0
+        };
+        
+        // UI elements
+        const shapeSelect = document.getElementById('shapeSelect');
+        const widthSlider = document.getElementById('widthSlider');
+        const heightSlider = document.getElementById('heightSlider');
+        const bouncesSlider = document.getElementById('bouncesSlider');
+        const precisionSlider = document.getElementById('precisionSlider');
+        const angleInput = document.getElementById('angleInput');
+        const ballXInput = document.getElementById('ballXInput');
+        const ballYInput = document.getElementById('ballYInput');
+        const widthValue = document.getElementById('widthValue');
+        const heightValue = document.getElementById('heightValue');
+        const bouncesValue = document.getElementById('bouncesValue');
+        const precisionValue = document.getElementById('precisionValue');
+        const orbitStatus = document.getElementById('orbitStatus');
+        const symmetryStatus = document.getElementById('symmetryStatus');
+        const periodicInfo = document.getElementById('periodicInfo');
+        const leftHits = document.getElementById('leftHits');
+        const rightHits = document.getElementById('rightHits');
+        const topHits = document.getElementById('topHits');
+        const bottomHits = document.getElementById('bottomHits');
+        const totalHits = document.getElementById('totalHits');
+        const wallHitInfo = document.getElementById('wallHitInfo');
+        
+        // Event listeners
+        shapeSelect.addEventListener('change', updateTableSettings);
+        widthSlider.addEventListener('input', updateTableSettings);
+        heightSlider.addEventListener('input', updateTableSettings);
+        bouncesSlider.addEventListener('input', updateUI);
+        precisionSlider.addEventListener('input', updateUI);
+        angleInput.addEventListener('input', validateAngle);
+        ballXInput.addEventListener('input', updateBallPosition);
+        ballYInput.addEventListener('input', updateBallPosition);
+        
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('mouseleave', handleMouseLeave);
+        
+        function updateTableSettings() {
+            tableSettings.shape = shapeSelect.value;
+            tableSettings.width = parseInt(widthSlider.value);
+            tableSettings.height = parseInt(heightSlider.value);
+            
+            // Update canvas size
+            canvas.width = tableSettings.width;
+            canvas.height = tableSettings.height;
+            
+            // Keep ball in bounds
+            if (tableSettings.shape === 'rectangle') {
+                ball.x = Math.max(ball.radius, Math.min(tableSettings.width - ball.radius, ball.x));
+                ball.y = Math.max(ball.radius, Math.min(tableSettings.height - ball.radius, ball.y));
+            } else {
+                const centerX = tableSettings.width / 2;
+                const centerY = tableSettings.height / 2;
+                const radius = Math.min(centerX, centerY) - ball.radius;
+                const dist = Math.sqrt((ball.x - centerX) ** 2 + (ball.y - centerY) ** 2);
+                if (dist > radius) {
+                    const angle = Math.atan2(ball.y - centerY, ball.x - centerX);
+                    ball.x = centerX + radius * Math.cos(angle);
+                    ball.y = centerY + radius * Math.sin(angle);
+                }
+            }
+            
+            updateUI();
+            updateBallInputs();
+            updateWallHitDisplay();
+            clearTrajectory();
+            draw();
+        }
+        
+        function updateUI() {
+            widthValue.textContent = widthSlider.value;
+            heightValue.textContent = heightSlider.value;
+            bouncesValue.textContent = bouncesSlider.value;
+            precisionValue.textContent = precisionSlider.value;
+
+            if (trajectory.length > 0) {
+                calculateTrajectory();
+            }
+        }
+
+        function validateAngle() {
+            let angle = parseFloat(angleInput.value);
+            if (isNaN(angle)) {
+                angleInput.value = 0;
+                return;
+            }
+
+            // Normalize angle to 0-360 range
+            while (angle < 0) angle += 360;
+            while (angle >= 360) angle -= 360;
+
+            if (angleInput.value != angle.toString()) {
+                angleInput.value = angle;
+            }
+        }
+        
+        function handleMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const distToBall = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
+            
+            if (distToBall <= ball.radius + 15) {
+                isDragging = true;
+                dragStart = { x: ball.x, y: ball.y };
+                dragCurrent = { x: mouseX, y: mouseY };
+            } else {
+                moveBallTo(mouseX, mouseY);
+                updateBallInputs();
+                clearTrajectory();
+            }
+            draw();
+        }
+        
+        function handleMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            mousePos = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+
+            if (isDragging) {
+                dragCurrent = mousePos;
+                draw();
+            } else {
+                // Check for hover over bounce points
+                checkBounceHover();
+                draw();
+            }
+        }
+
+        function handleMouseLeave(e) {
+            hoveredBounceIndex = -1;
+            draw();
+        }
+
+        function checkBounceHover() {
+            hoveredBounceIndex = -1;
+
+            if (trajectory.length === 0) return;
+
+            for (let i = 0; i < trajectory.length; i++) {
+                if (trajectory[i].isBounce) {
+                    const dist = Math.sqrt(
+                        (mousePos.x - trajectory[i].x) ** 2 +
+                        (mousePos.y - trajectory[i].y) ** 2
+                    );
+
+                    if (dist <= 15) { // 15px hover radius
+                        hoveredBounceIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        function handleMouseUp(e) {
+            if (isDragging) {
+                calculateTrajectory();
+                isDragging = false;
+            }
+        }
+        
+        function moveBallTo(x, y) {
+            if (tableSettings.shape === 'rectangle') {
+                ball.x = Math.max(ball.radius, Math.min(tableSettings.width - ball.radius, x));
+                ball.y = Math.max(ball.radius, Math.min(tableSettings.height - ball.radius, y));
+            } else {
+                const centerX = tableSettings.width / 2;
+                const centerY = tableSettings.height / 2;
+                const maxRadius = Math.min(centerX, centerY) - ball.radius;
+                const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                
+                if (dist <= maxRadius) {
+                    ball.x = x;
+                    ball.y = y;
+                } else {
+                    const angle = Math.atan2(y - centerY, x - centerX);
+                    ball.x = centerX + maxRadius * Math.cos(angle);
+                    ball.y = centerY + maxRadius * Math.sin(angle);
+                }
+            }
+        }
+        
+        function calculateTrajectory() {
+            trajectory = [];
+            periodicOrbit = null;
+            symmetryLines = [];
+
+            // Reset wall hit counter
+            wallHitCounter = {
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0
+            };
+
+            const dx = dragCurrent.x - dragStart.x;
+            const dy = dragCurrent.y - dragStart.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+
+            if (length < 5) {
+                updateOrbitStatus("Drag distance too small");
+                updateSymmetryStatus("No trajectory to analyze");
+                updateWallHitDisplay();
+                return;
+            }
+
+            // Normalize direction (constant velocity)
+            let vx = dx / length;
+            let vy = dy / length;
+            
+            let x = ball.x;
+            let y = ball.y;
+            let bounces = 0;
+            const maxBounces = parseInt(bouncesSlider.value);
+            const precision = Math.pow(10, -parseInt(precisionSlider.value));
+            
+            // Store initial position and direction for periodic detection
+            initialShot = { x: ball.x, y: ball.y, vx, vy };
+            
+            trajectory.push({ x, y, vx, vy, isBounce: false });
+            
+            while (bounces < maxBounces) {
+                let collision = findNextCollision(x, y, vx, vy);
+                
+                if (!collision) break;
+                
+                x = collision.x;
+                y = collision.y;
+                
+                // Count wall hits for rectangular tables
+                if (tableSettings.shape === 'rectangle' && collision.wall !== 'circle') {
+                    wallHitCounter[collision.wall]++;
+                }
+
+                // Calculate angles for visualization
+                const incidentAngle = calculateIncidentAngle(vx, vy, collision);
+                const reflectionAngle = calculateReflectionAngle(collision.newVx, collision.newVy, collision);
+
+                trajectory.push({
+                    x, y, vx, vy,
+                    isBounce: true,
+                    incidentAngle,
+                    reflectionAngle,
+                    wall: collision.wall,
+                    normal: collision.normal,
+                    newVx: collision.newVx,
+                    newVy: collision.newVy
+                });
+
+                // Update velocity
+                vx = collision.newVx;
+                vy = collision.newVy;
+                
+                bounces++;
+                
+                // Check for periodic orbit
+                if (bounces > 1 && checkPeriodicOrbit(x, y, vx, vy, precision)) {
+                    periodicOrbit = {
+                        period: bounces,
+                        startIndex: 0,
+                        endIndex: trajectory.length - 1
+                    };
+                    updateOrbitStatus(`Periodic orbit detected! Period: ${bounces}`);
+                    break;
+                }
+            }
+            
+            if (!periodicOrbit && bounces >= maxBounces) {
+                updateOrbitStatus(`No periodic orbit found (reached max ${bounces} bounces)`);
+            } else if (!periodicOrbit) {
+                updateOrbitStatus(`No periodic orbit found (checked ${bounces} bounces)`);
+            }
+            
+            // Analyze symmetry
+            analyzeSymmetry();
+
+            // Update wall hit display
+            updateWallHitDisplay();
+
+            draw();
+        }
+        
+        function findNextCollision(x, y, vx, vy) {
+            if (tableSettings.shape === 'rectangle') {
+                return findRectangleCollision(x, y, vx, vy);
+            } else {
+                return findCircleCollision(x, y, vx, vy);
+            }
+        }
+        
+        function findRectangleCollision(x, y, vx, vy) {
+            const radius = ball.radius;
+            let minTime = Infinity;
+            let collision = null;
+            
+            // Check each wall
+            const checks = [
+                { wall: 'left', pos: radius, axis: 'x', vel: vx, normal: [1, 0] },
+                { wall: 'right', pos: tableSettings.width - radius, axis: 'x', vel: vx, normal: [-1, 0] },
+                { wall: 'top', pos: radius, axis: 'y', vel: vy, normal: [0, 1] },
+                { wall: 'bottom', pos: tableSettings.height - radius, axis: 'y', vel: vy, normal: [0, -1] }
+            ];
+            
+            checks.forEach(check => {
+                if (Math.abs(check.vel) < 1e-10) return;
+                
+                const time = (check.pos - (check.axis === 'x' ? x : y)) / check.vel;
+                
+                if (time > 1e-10 && time < minTime) {
+                    const futureX = x + vx * time;
+                    const futureY = y + vy * time;
+                    
+                    if (futureX >= radius && futureX <= tableSettings.width - radius &&
+                        futureY >= radius && futureY <= tableSettings.height - radius) {
+                        
+                        // Reflect velocity
+                        const [nx, ny] = check.normal;
+                        const dot = vx * nx + vy * ny;
+                        const newVx = vx - 2 * dot * nx;
+                        const newVy = vy - 2 * dot * ny;
+                        
+                        minTime = time;
+                        collision = {
+                            x: futureX,
+                            y: futureY,
+                            newVx,
+                            newVy,
+                            wall: check.wall,
+                            normal: check.normal
+                        };
+                    }
+                }
+            });
+            
+            return collision;
+        }
+        
+        function findCircleCollision(x, y, vx, vy) {
+            const centerX = tableSettings.width / 2;
+            const centerY = tableSettings.height / 2;
+            const tableRadius = Math.min(centerX, centerY);
+            const ballRadius = ball.radius;
+            const collisionRadius = tableRadius - ballRadius;
+            
+            // Solve quadratic equation for circle collision
+            const a = vx * vx + vy * vy;
+            const b = 2 * ((x - centerX) * vx + (y - centerY) * vy);
+            const c = (x - centerX) * (x - centerX) + (y - centerY) * (y - centerY) - collisionRadius * collisionRadius;
+            
+            const discriminant = b * b - 4 * a * c;
+            if (discriminant < 0) return null;
+            
+            const t1 = (-b - Math.sqrt(discriminant)) / (2 * a);
+            const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
+            
+            const time = t1 > 1e-10 ? t1 : (t2 > 1e-10 ? t2 : null);
+            if (!time) return null;
+            
+            const futureX = x + vx * time;
+            const futureY = y + vy * time;
+            
+            // Calculate normal at collision point
+            const nx = (futureX - centerX) / collisionRadius;
+            const ny = (futureY - centerY) / collisionRadius;
+            
+            // Reflect velocity
+            const dot = vx * nx + vy * ny;
+            const newVx = vx - 2 * dot * nx;
+            const newVy = vy - 2 * dot * ny;
+            
+            return {
+                x: futureX,
+                y: futureY,
+                newVx,
+                newVy,
+                wall: 'circle',
+                normal: [nx, ny]
+            };
+        }
+        
+        function analyzeSymmetry() {
+            symmetryLines = [];
+            
+            if (trajectory.length < 3) {
+                updateSymmetryStatus("Insufficient trajectory data");
+                return;
+            }
+            
+            const precision = Math.pow(10, -(parseInt(precisionSlider.value) - 2));
+            let symmetries = [];
+            
+            if (tableSettings.shape === 'rectangle') {
+                symmetries = findRectangularSymmetries(precision);
+            } else {
+                symmetries = findCircularSymmetries(precision);
+            }
+            
+            symmetryLines = symmetries;
+            
+            if (symmetries.length === 0) {
+                updateSymmetryStatus("No symmetries detected");
+            } else if (symmetries.length === 1) {
+                updateSymmetryStatus(`1 symmetry detected: ${symmetries[0].type}`);
+            } else {
+                const types = symmetries.map(s => s.type).join(', ');
+                updateSymmetryStatus(`${symmetries.length} symmetries detected: ${types}`);
+            }
+        }
+        
+        function findRectangularSymmetries(precision) {
+            const symmetries = [];
+            const centerX = tableSettings.width / 2;
+            const centerY = tableSettings.height / 2;
+            
+            // Check horizontal symmetry (reflection across horizontal center line)
+            if (checkLineSymmetry(centerX, 0, centerX, tableSettings.height, 'horizontal', precision)) {
+                symmetries.push({
+                    type: 'horizontal',
+                    x1: 0,
+                    y1: centerY,
+                    x2: tableSettings.width,
+                    y2: centerY
+                });
+            }
+            
+            // Check vertical symmetry (reflection across vertical center line)
+            if (checkLineSymmetry(0, centerY, tableSettings.width, centerY, 'vertical', precision)) {
+                symmetries.push({
+                    type: 'vertical',
+                    x1: centerX,
+                    y1: 0,
+                    x2: centerX,
+                    y2: tableSettings.height
+                });
+            }
+            
+            // Check diagonal symmetries (main diagonal and anti-diagonal)
+            if (tableSettings.width === tableSettings.height) {
+                // Main diagonal (top-left to bottom-right)
+                if (checkLineSymmetry(0, 0, tableSettings.width, tableSettings.height, 'main-diagonal', precision)) {
+                    symmetries.push({
+                        type: 'main-diagonal',
+                        x1: 0,
+                        y1: 0,
+                        x2: tableSettings.width,
+                        y2: tableSettings.height
+                    });
+                }
+                
+                // Anti-diagonal (top-right to bottom-left)
+                if (checkLineSymmetry(tableSettings.width, 0, 0, tableSettings.height, 'anti-diagonal', precision)) {
+                    symmetries.push({
+                        type: 'anti-diagonal',
+                        x1: tableSettings.width,
+                        y1: 0,
+                        x2: 0,
+                        y2: tableSettings.height
+                    });
+                }
+            }
+            
+            return symmetries;
+        }
+        
+        function findCircularSymmetries(precision) {
+            const symmetries = [];
+            const centerX = tableSettings.width / 2;
+            const centerY = tableSettings.height / 2;
+            
+            // For circular tables, check rotational symmetries
+            const rotationalSymmetries = checkRotationalSymmetry(precision);
+            
+            // Also check for reflection symmetries through diameters
+            const reflectionSymmetries = checkCircularReflectionSymmetries(precision);
+            
+            return [...rotationalSymmetries, ...reflectionSymmetries];
+        }
+        
+        function checkLineSymmetry(x1, y1, x2, y2, type, precision) {
+            // Check if trajectory is symmetric across the line from (x1,y1) to (x2,y2)
+            const points = trajectory.map(p => ({ x: p.x, y: p.y }));
+            
+            for (let i = 0; i < points.length; i++) {
+                const point = points[i];
+                const reflected = reflectPointAcrossLine(point.x, point.y, x1, y1, x2, y2);
+                
+                // Find if there's a corresponding point on the trajectory
+                let found = false;
+                for (let j = 0; j < points.length; j++) {
+                    if (i === j) continue;
+                    const other = points[j];
+                    const dist = Math.sqrt((reflected.x - other.x) ** 2 + (reflected.y - other.y) ** 2);
+                    if (dist < precision) {
+                        found = true;
+                        break;
+                    }
+                }
+                
+                if (!found) return false;
+            }
+            
+            return points.length > 2; // Need at least a few points to be meaningful
+        }
+        
+        function checkRotationalSymmetry(precision) {
+            const symmetries = [];
+            const centerX = tableSettings.width / 2;
+            const centerY = tableSettings.height / 2;
+            
+            // Check for 2-fold, 3-fold, 4-fold, etc. rotational symmetry
+            for (let n = 2; n <= 8; n++) {
+                const angle = (2 * Math.PI) / n;
+                if (checkRotationalSymmetryN(centerX, centerY, angle, precision)) {
+                    symmetries.push({
+                        type: `${n}-fold rotation`,
+                        centerX,
+                        centerY,
+                        angle,
+                        n
+                    });
+                    break; // Usually if n-fold exists, higher folds are less meaningful
+                }
+            }
+            
+            return symmetries;
+        }
+        
+        function checkRotationalSymmetryN(centerX, centerY, angle, precision) {
+            const points = trajectory.map(p => ({ x: p.x, y: p.y }));
+            
+            for (let i = 0; i < points.length; i++) {
+                const point = points[i];
+                const rotated = rotatePointAroundCenter(point.x, point.y, centerX, centerY, angle);
+                
+                let found = false;
+                for (let j = 0; j < points.length; j++) {
+                    if (i === j) continue;
+                    const other = points[j];
+                    const dist = Math.sqrt((rotated.x - other.x) ** 2 + (rotated.y - other.y) ** 2);
+                    if (dist < precision) {
+                        found = true;
+                        break;
+                    }
+                }
+                
+                if (!found) return false;
+            }
+            
+            return points.length > 3;
+        }
+        
+        function checkCircularReflectionSymmetries(precision) {
+            const symmetries = [];
+            const centerX = tableSettings.width / 2;
+            const centerY = tableSettings.height / 2;
+            
+            // Check for reflection symmetries through various diameter angles
+            const angles = [0, Math.PI/4, Math.PI/2, 3*Math.PI/4]; // 0°, 45°, 90°, 135°
+            
+            for (let angle of angles) {
+                const x1 = centerX + Math.cos(angle) * tableSettings.width;
+                const y1 = centerY + Math.sin(angle) * tableSettings.height;
+                const x2 = centerX - Math.cos(angle) * tableSettings.width;
+                const y2 = centerY - Math.sin(angle) * tableSettings.height;
+                
+                if (checkLineSymmetry(x1, y1, x2, y2, `reflection-${Math.round(angle * 180 / Math.PI)}°`, precision)) {
+                    symmetries.push({
+                        type: `reflection-${Math.round(angle * 180 / Math.PI)}°`,
+                        x1, y1, x2, y2
+                    });
+                }
+            }
+            
+            return symmetries;
+        }
+        
+        function reflectPointAcrossLine(px, py, x1, y1, x2, y2) {
+            // Reflect point (px, py) across line from (x1, y1) to (x2, y2)
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            
+            if (length === 0) return { x: px, y: py };
+            
+            // Normalize line direction
+            const nx = dx / length;
+            const ny = dy / length;
+            
+            // Vector from line point to our point
+            const vx = px - x1;
+            const vy = py - y1;
+            
+            // Project onto line
+            const proj = vx * nx + vy * ny;
+            const projX = x1 + proj * nx;
+            const projY = y1 + proj * ny;
+            
+            // Reflect
+            const reflectedX = 2 * projX - px;
+            const reflectedY = 2 * projY - py;
+            
+            return { x: reflectedX, y: reflectedY };
+        }
+        
+        function rotatePointAroundCenter(px, py, centerX, centerY, angle) {
+            const dx = px - centerX;
+            const dy = py - centerY;
+            
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            
+            const rotatedX = centerX + dx * cos - dy * sin;
+            const rotatedY = centerY + dx * sin + dy * cos;
+            
+            return { x: rotatedX, y: rotatedY };
+        }
+        
+        function checkPeriodicOrbit(x, y, vx, vy, precision) {
+            if (!initialShot) return false;
+
+            const dx = x - initialShot.x;
+            const dy = y - initialShot.y;
+            const dvx = vx - initialShot.vx;
+            const dvy = vy - initialShot.vy;
+
+            const posError = Math.sqrt(dx * dx + dy * dy);
+            const velError = Math.sqrt(dvx * dvx + dvy * dvy);
+
+            return posError < precision && velError < precision;
+        }
+
+        function calculateIncidentAngle(vx, vy, collision) {
+            const [nx, ny] = collision.normal;
+
+            // Calculate angle between incident vector and normal
+            const incidentMag = Math.sqrt(vx * vx + vy * vy);
+            const normalMag = Math.sqrt(nx * nx + ny * ny);
+
+            if (incidentMag === 0 || normalMag === 0) return 0;
+
+            const dotProduct = vx * nx + vy * ny;
+            const cosAngle = Math.abs(dotProduct) / (incidentMag * normalMag);
+
+            // Clamp to avoid floating point errors
+            const clampedCos = Math.max(-1, Math.min(1, cosAngle));
+            const angleRad = Math.acos(clampedCos);
+
+            return (angleRad * 180) / Math.PI;
+        }
+
+        function calculateReflectionAngle(newVx, newVy, collision) {
+            const [nx, ny] = collision.normal;
+
+            // Calculate angle between reflected vector and normal
+            const reflectedMag = Math.sqrt(newVx * newVx + newVy * newVy);
+            const normalMag = Math.sqrt(nx * nx + ny * ny);
+
+            if (reflectedMag === 0 || normalMag === 0) return 0;
+
+            const dotProduct = newVx * nx + newVy * ny;
+            const cosAngle = Math.abs(dotProduct) / (reflectedMag * normalMag);
+
+            // Clamp to avoid floating point errors
+            const clampedCos = Math.max(-1, Math.min(1, cosAngle));
+            const angleRad = Math.acos(clampedCos);
+
+            return (angleRad * 180) / Math.PI;
+        }
+
+        function drawAngleVisualization(bouncePoint, bounceIndex) {
+            if (!bouncePoint.normal || bounceIndex === 0) return;
+
+            const x = bouncePoint.x;
+            const y = bouncePoint.y;
+            const [nx, ny] = bouncePoint.normal;
+
+            // Get incident and reflected velocities
+            const prevPoint = trajectory[bounceIndex - 1];
+            const incidentVx = bouncePoint.vx;
+            const incidentVy = bouncePoint.vy;
+            const reflectedVx = bouncePoint.newVx || (bounceIndex + 1 < trajectory.length ? trajectory[bounceIndex + 1].vx : 0);
+            const reflectedVy = bouncePoint.newVy || (bounceIndex + 1 < trajectory.length ? trajectory[bounceIndex + 1].vy : 0);
+
+            const lineLength = 40;
+
+            // Draw normal vector
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + nx * lineLength, y + ny * lineLength);
+            ctx.stroke();
+
+            // Draw incident vector
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            const incidentMag = Math.sqrt(incidentVx * incidentVx + incidentVy * incidentVy);
+            if (incidentMag > 0) {
+                const incidentNormX = (incidentVx / incidentMag) * lineLength;
+                const incidentNormY = (incidentVy / incidentMag) * lineLength;
+                ctx.beginPath();
+                ctx.moveTo(x - incidentNormX, y - incidentNormY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                // Arrow head for incident
+                drawArrowHead(x, y, -incidentNormX, -incidentNormY, '#00ffff');
+            }
+
+            // Draw reflected vector
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            const reflectedMag = Math.sqrt(reflectedVx * reflectedVx + reflectedVy * reflectedVy);
+            if (reflectedMag > 0) {
+                const reflectedNormX = (reflectedVx / reflectedMag) * lineLength;
+                const reflectedNormY = (reflectedVy / reflectedMag) * lineLength;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + reflectedNormX, y + reflectedNormY);
+                ctx.stroke();
+
+                // Arrow head for reflected
+                drawArrowHead(x + reflectedNormX, y + reflectedNormY, reflectedNormX, reflectedNormY, '#ffff00');
+            }
+
+            // Draw angle information
+            drawAngleInfo(bouncePoint, x, y);
+        }
+
+        function drawArrowHead(x, y, dirX, dirY, color) {
+            const angle = Math.atan2(dirY, dirX);
+            const arrowLength = 8;
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(
+                x - arrowLength * Math.cos(angle - Math.PI / 6),
+                y - arrowLength * Math.sin(angle - Math.PI / 6)
+            );
+            ctx.moveTo(x, y);
+            ctx.lineTo(
+                x - arrowLength * Math.cos(angle + Math.PI / 6),
+                y - arrowLength * Math.sin(angle + Math.PI / 6)
+            );
+            ctx.stroke();
+        }
+
+        function drawAngleInfo(bouncePoint, x, y) {
+            const incidentAngle = bouncePoint.incidentAngle || 0;
+            const reflectionAngle = bouncePoint.reflectionAngle || 0;
+
+            // Position info box
+            let infoX = x + 60;
+            let infoY = y - 40;
+
+            // Keep info box on screen
+            if (infoX + 200 > canvas.width) infoX = x - 260;
+            if (infoY - 60 < 0) infoY = y + 60;
+
+            // Draw info background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(infoX, infoY - 50, 200, 60);
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(infoX, infoY - 50, 200, 60);
+
+            // Draw text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Bounce Point #${trajectory.filter((p, i) => p.isBounce && i <= trajectory.indexOf(bouncePoint)).length}`, infoX + 5, infoY - 30);
+            ctx.fillText(`Incident Angle: ${incidentAngle.toFixed(2)}°`, infoX + 5, infoY - 15);
+            ctx.fillText(`Reflection Angle: ${reflectionAngle.toFixed(2)}°`, infoX + 5, infoY);
+
+            // Legend
+            ctx.fillStyle = '#ff0000';
+            ctx.fillText('● Normal', infoX + 5, infoY + 15);
+            ctx.fillStyle = '#00ffff';
+            ctx.fillText('● Incident', infoX + 70, infoY + 15);
+            ctx.fillStyle = '#ffff00';
+            ctx.fillText('● Reflected', infoX + 130, infoY + 15);
+        }
+
+        function updateOrbitStatus(message) {
+            orbitStatus.textContent = message;
+            periodicInfo.className = periodicOrbit ? 'periodic-info found' : 'periodic-info';
+        }
+        
+        function updateSymmetryStatus(message) {
+            symmetryStatus.textContent = message;
+        }
+
+        function updateWallHitDisplay() {
+            // Show/hide wall hit counter based on table shape
+            if (tableSettings.shape === 'rectangle') {
+                wallHitInfo.style.display = 'block';
+                leftHits.textContent = wallHitCounter.left;
+                rightHits.textContent = wallHitCounter.right;
+                topHits.textContent = wallHitCounter.top;
+                bottomHits.textContent = wallHitCounter.bottom;
+
+                const total = wallHitCounter.left + wallHitCounter.right +
+                             wallHitCounter.top + wallHitCounter.bottom;
+                totalHits.textContent = total;
+            } else {
+                wallHitInfo.style.display = 'none';
+            }
+        }
+        
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#0f5132';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw table boundary for circle
+            if (tableSettings.shape === 'circle') {
+                const centerX = tableSettings.width / 2;
+                const centerY = tableSettings.height / 2;
+                const radius = Math.min(centerX, centerY);
+                
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            // Draw symmetry lines
+            if (symmetryLines.length > 0) {
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 5]);
+                
+                symmetryLines.forEach(line => {
+                    if (line.type.includes('rotation')) {
+                        // For rotational symmetry, draw multiple radial lines
+                        const n = line.n;
+                        for (let i = 0; i < n; i++) {
+                            const angle = (2 * Math.PI * i) / n;
+                            const radius = Math.min(tableSettings.width, tableSettings.height) / 2;
+                            const x1 = line.centerX + radius * Math.cos(angle);
+                            const y1 = line.centerY + radius * Math.sin(angle);
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(line.centerX, line.centerY);
+                            ctx.lineTo(x1, y1);
+                            ctx.stroke();
+                        }
+                    } else {
+                        // For reflection symmetries, draw the line
+                        ctx.beginPath();
+                        ctx.moveTo(line.x1, line.y1);
+                        ctx.lineTo(line.x2, line.y2);
+                        ctx.stroke();
+                    }
+                });
+                
+                ctx.setLineDash([]);
+            }
+            
+            // Draw trajectory
+            if (trajectory.length > 1) {
+                ctx.strokeStyle = periodicOrbit ? '#ff4444' : '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(trajectory[0].x, trajectory[0].y);
+                
+                for (let i = 1; i < trajectory.length; i++) {
+                    ctx.lineTo(trajectory[i].x, trajectory[i].y);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw bounce points
+                trajectory.forEach((point, i) => {
+                    if (point.isBounce && i > 0) {
+                        // Highlight hovered bounce point
+                        if (i === hoveredBounceIndex) {
+                            ctx.fillStyle = '#00ff00';
+                            ctx.strokeStyle = '#00ff00';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.stroke();
+                        } else {
+                            ctx.fillStyle = periodicOrbit ? '#ff4444' : '#ffff44';
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                });
+                
+                // Highlight periodic orbit endpoints
+                if (periodicOrbit) {
+                    ctx.fillStyle = '#00ff00';
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = 3;
+                    
+                    // Start point
+                    ctx.beginPath();
+                    ctx.arc(trajectory[0].x, trajectory[0].y, 8, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
+                    // End point
+                    const endPoint = trajectory[trajectory.length - 1];
+                    ctx.beginPath();
+                    ctx.arc(endPoint.x, endPoint.y, 8, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw angle visualization for hovered bounce point
+            if (hoveredBounceIndex >= 0 && hoveredBounceIndex < trajectory.length) {
+                drawAngleVisualization(trajectory[hoveredBounceIndex], hoveredBounceIndex);
+            }
+
+            // Draw ball
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw drag line
+            if (isDragging) {
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(ball.x, ball.y);
+                ctx.lineTo(dragCurrent.x, dragCurrent.y);
+                ctx.stroke();
+                
+                // Arrow head
+                const angle = Math.atan2(dragCurrent.y - ball.y, dragCurrent.x - ball.x);
+                const arrowLength = 15;
+                ctx.beginPath();
+                ctx.moveTo(dragCurrent.x, dragCurrent.y);
+                ctx.lineTo(
+                    dragCurrent.x - arrowLength * Math.cos(angle - Math.PI / 6),
+                    dragCurrent.y - arrowLength * Math.sin(angle - Math.PI / 6)
+                );
+                ctx.moveTo(dragCurrent.x, dragCurrent.y);
+                ctx.lineTo(
+                    dragCurrent.x - arrowLength * Math.cos(angle + Math.PI / 6),
+                    dragCurrent.y - arrowLength * Math.sin(angle + Math.PI / 6)
+                );
+                ctx.stroke();
+            }
+        }
+        
+        function clearTrajectory() {
+            trajectory = [];
+            periodicOrbit = null;
+            symmetryLines = [];
+            initialShot = null;
+
+            // Reset wall hit counter
+            wallHitCounter = {
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0
+            };
+
+            updateOrbitStatus("Shoot the ball to check for periodic orbits");
+            updateSymmetryStatus("No trajectory to analyze");
+            updateWallHitDisplay();
+            draw();
+        }
+        
+        function resetBall() {
+            ball.x = tableSettings.width / 2;
+            ball.y = tableSettings.height / 2;
+            updateBallInputs();
+            clearTrajectory();
+        }
+        
+        function randomShot() {
+            // Random position
+            if (tableSettings.shape === 'rectangle') {
+                ball.x = ball.radius + Math.random() * (tableSettings.width - 2 * ball.radius);
+                ball.y = ball.radius + Math.random() * (tableSettings.height - 2 * ball.radius);
+            } else {
+                const centerX = tableSettings.width / 2;
+                const centerY = tableSettings.height / 2;
+                const maxRadius = Math.min(centerX, centerY) - ball.radius;
+                const angle = Math.random() * 2 * Math.PI;
+                const radius = Math.random() * maxRadius;
+                ball.x = centerX + radius * Math.cos(angle);
+                ball.y = centerY + radius * Math.sin(angle);
+            }
+
+            // Random direction
+            const angle = Math.random() * 2 * Math.PI;
+            const distance = 50 + Math.random() * 100;
+
+            dragStart = { x: ball.x, y: ball.y };
+            dragCurrent = {
+                x: ball.x + distance * Math.cos(angle),
+                y: ball.y + distance * Math.sin(angle)
+            };
+
+            calculateTrajectory();
+        }
+
+        function shootAtAngle() {
+            validateAngle();
+            const angleDegrees = parseFloat(angleInput.value);
+
+            // Convert degrees to radians (0° = right, 90° = down, 180° = left, 270° = up)
+            const angleRadians = (angleDegrees * Math.PI) / 180;
+
+            // Calculate direction vector (constant unit velocity)
+            const vx = Math.cos(angleRadians);
+            const vy = Math.sin(angleRadians);
+
+            // Set drag points based on angle (fixed distance for unit velocity)
+            const fixedDistance = 100; // Fixed distance to represent unit velocity
+            dragStart = { x: ball.x, y: ball.y };
+            dragCurrent = {
+                x: ball.x + fixedDistance * vx,
+                y: ball.y + fixedDistance * vy
+            };
+
+            calculateTrajectory();
+        }
+
+        function setRandomAngle() {
+            const randomAngle = Math.random() * 360;
+            angleInput.value = randomAngle.toFixed(3);
+            validateAngle();
+        }
+
+        function editValue(type) {
+            let currentValue, minValue, maxValue, step, slider, valueDisplay;
+
+            switch(type) {
+                case 'width':
+                    currentValue = widthSlider.value;
+                    minValue = 200;
+                    maxValue = 1200;
+                    step = 50;
+                    slider = widthSlider;
+                    valueDisplay = widthValue;
+                    break;
+                case 'height':
+                    currentValue = heightSlider.value;
+                    minValue = 200;
+                    maxValue = 800;
+                    step = 50;
+                    slider = heightSlider;
+                    valueDisplay = heightValue;
+                    break;
+                case 'bounces':
+                    currentValue = bouncesSlider.value;
+                    minValue = 5;
+                    maxValue = 200;
+                    step = 1;
+                    slider = bouncesSlider;
+                    valueDisplay = bouncesValue;
+                    break;
+                case 'precision':
+                    currentValue = precisionSlider.value;
+                    minValue = 1;
+                    maxValue = 20;
+                    step = 1;
+                    slider = precisionSlider;
+                    valueDisplay = precisionValue;
+                    break;
+                default:
+                    return;
+            }
+
+            // Create input element
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'value-input';
+            input.value = currentValue;
+            input.min = minValue;
+            input.max = maxValue;
+            input.step = step;
+
+            // Replace display with input
+            valueDisplay.style.display = 'none';
+            valueDisplay.parentNode.insertBefore(input, valueDisplay.nextSibling);
+            input.focus();
+            input.select();
+
+            // Handle input completion
+            function finishEdit() {
+                let newValue = parseFloat(input.value);
+                if (isNaN(newValue)) newValue = currentValue;
+
+                // Clamp to valid range
+                newValue = Math.max(minValue, Math.min(maxValue, newValue));
+
+                // Update slider and display
+                slider.value = newValue;
+                valueDisplay.textContent = newValue;
+
+                // Remove input and show display
+                input.remove();
+                valueDisplay.style.display = 'inline-block';
+
+                // Update the simulation
+                if (type === 'width' || type === 'height') {
+                    updateTableSettings();
+                } else {
+                    updateUI();
+                }
+            }
+
+            input.addEventListener('blur', finishEdit);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    finishEdit();
+                } else if (e.key === 'Escape') {
+                    input.remove();
+                    valueDisplay.style.display = 'inline-block';
+                }
+            });
+        }
+
+        function updateBallPosition() {
+            const x = parseFloat(ballXInput.value);
+            const y = parseFloat(ballYInput.value);
+
+            if (!isNaN(x) && !isNaN(y)) {
+                moveBallTo(x, y);
+                clearTrajectory();
+                draw();
+            }
+        }
+
+        function setBallPosition() {
+            updateBallPosition();
+        }
+
+        function centerBall() {
+            const centerX = tableSettings.width / 2;
+            const centerY = tableSettings.height / 2;
+
+            ballXInput.value = centerX;
+            ballYInput.value = centerY;
+
+            moveBallTo(centerX, centerY);
+            clearTrajectory();
+            draw();
+        }
+
+        function updateBallInputs() {
+            ballXInput.value = ball.x.toFixed(1);
+            ballYInput.value = ball.y.toFixed(1);
+
+            // Update input limits based on table size
+            ballXInput.min = ball.radius;
+            ballXInput.max = tableSettings.width - ball.radius;
+            ballYInput.min = ball.radius;
+            ballYInput.max = tableSettings.height - ball.radius;
+        }
+
+        // Initialize
+        updateTableSettings();
+        resetBall();
+        updateBallInputs();
+    </script>
+</body>
+</html>
