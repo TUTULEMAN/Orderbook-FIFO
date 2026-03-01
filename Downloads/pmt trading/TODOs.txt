@@ -1,0 +1,9 @@
+PRIORITY:
+- Replace yfin server (bot blocking) → use alternative API
+
+TIMELINE:
+- Live news window (Fintech API) - DONE (fix Bloomberg Live YT URL display + equities news integration, only Crypto and FOREX atm)
+- Stock indicator window - blocked by yfin API, need alternative (get done mid next week)
+- Backtest compiler/runner - GUI exists, but can't boot up cuz above
+- Analytics dashboard - correlation matrix, drawdown, PSR, Sharpe ratio for strat feedback
+- Extra: Window layout adjustments
